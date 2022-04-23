@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>markdown to mind-map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            border: 0;
+            font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        .wrap {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+        }
+
+        .left {
+            padding: 10px;
+            border-right: 1px solid #ccc;
+            flex-shrink: 0;
+            width: 500px;
+            outline: none;
+            resize: none;
+        }
+
+        .right {
+            padding: 10px;
+            flex: 1
+        }
+
+        .actions {
+            margin-bottom: 16px;
+            display: flex;
+        }
+
+        .actions .left {
+            border: 0;
+            text-align: right;
+        }
+
+        .btn {
+            height: 36px;
+            line-height: 36px;
+            background: #73a6ff;
+            cursor: pointer;
+            color: #fff;
+            outline: none;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body onload="init()">
+<div class="actions">
+    <div class="left">
+        <a href="javascript:;" class="btn" onclick="init()">转换</a>
+    </div>
+    <div class="right">
+        <a href="javascript:;" class="btn" onclick="downPng()">下载 PNG</a>
+    </div>
+</div>
+<div class="wrap">
+        <textarea class="left" id="md">
+# markdown-mind
+
+## Links
+
+- [tooks](http://tools.zhukejin.com)
+
+## Features
+
+- links
+- **inline** ~~text~~ *styles*
+- multiline
+text
+- `inline code`
+-
+```js
+console.log('code block');
+```
+- Katex - $x = {-b \pm \sqrt{b^2-4ac} \over 2a}$
+        </textarea>
+    <div class="right" id="svg"></div>
+</div>
+
+<script src="./src/assets/d3.min.js"></script>
+<script src="./src/assets/markmap-lib.min.js"></script>
+<script src="./src/assets/markmap-view.min.js"></script>
+<script>
+  const init = () => {
+    const {
+      Transformer,
+      Markmap,
+      loadCSS,
+      loadJS
+    } = window.markmap
+
+    const transform = (transformer, content) => {
+      const {root, features} = transformer.transform(content)
+      const {styles, scripts} = transformer.getUsedAssets(features)
+      if (styles) loadCSS(styles)
+      if (scripts) loadJS(scripts)
+      return root
+    }
+
+    const el = document.querySelector('#md')
+
+    // 准备 svg 元素
+    const $svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
+    $svg.setAttribute('style', 'width:100%;height:100%')
+
+    // 插入 svg
+    document.getElementById('svg').innerHTML = ''
+    document.getElementById('svg').append($svg)
+
+    // 执行渲染流程
+    const lines = el.value.split('\n')
+    let indent = Infinity
+    lines.forEach(line => {
+      const spaces = line.match(/^\s*/)[0].length
+      if (spaces < line.length) indent = Math.min(indent, spaces)
+    })
+    const content = lines.map(line => line.slice(indent)).join('\n')
+    const transformer = new Transformer()
+    const mm = Markmap.create($svg)
+    const render = () => {
+      // console.log('text', content)
+      const root = transform(transformer, content)
+      mm.setData(root)
+      mm.fit()
+    }
+    transformer.hooks.retransform.tap(render)
+    render()
+  }
+
+
+  function downPng() {
+    const down = document.querySelector('#svg svg')
+
+    const downCopy = down.cloneNode(down) //克隆一份dom，避免样式设置等操作影响原有界面
+
+    downCopy.style.background = 'white'
+
+    const xmlDom = new XMLSerializer().serializeToString(downCopy)
+
+    const xml = `<?xml version="1.0" standalone="no"?>\r\n${xmlDom}`
+
+    const src = `data:image/svg+xml;base64,${window.btoa(unescape(encodeURIComponent(xml)))}`
+
+    const img = new Image()
+    img.src = src
+    document.body.appendChild(img)
+
+    const canvas = document.createElement('canvas')
+    const canWidth = down.width.baseVal.value, canHeight = down.height.baseVal.value;
+    canvas.width = canWidth
+    canvas.height = canHeight
+
+    const context = canvas.getContext('2d')
+
+    img.onload = () => {
+      console.log(12312)
+      context.drawImage(img, 0, 0, canWidth, canHeight)
+      const a = document.createElement('a')
+      a.download = `下载.jpg`
+      a.href = canvas.toDataURL('image/jpeg', 1)
+      a.click()
+    }
+  }
+
+</script>
+</body>
+</html>
